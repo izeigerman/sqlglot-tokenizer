@@ -42,7 +42,7 @@ impl Tokenizer {
         }
     }
 
-    fn scan<F>(&mut self, until: Option<F>)
+    fn scan<F>(&mut self, until: Option<&F>)
     where
         F: Fn() -> bool,
     {
@@ -57,22 +57,17 @@ impl Tokenizer {
             if !self.settings.white_space.contains_key(&self.current_char) {
                 if self.current_char.is_digit(10) {
                     self.scan_number();
-                }
-                if self.settings.identifiers.contains_key(&self.current_char) {
-                    self.scan_identifier(
-                        &self
-                            .settings
-                            .identifiers
-                            .get(&self.current_char)
-                            .unwrap()
-                            .to_string() as &str,
-                    );
                 } else {
-                    self.scan_keyword();
+                    match self.settings.identifiers.get(&self.current_char) {
+                        Some(identifier_end) => {
+                            self.scan_identifier(&identifier_end.to_string() as &str)
+                        }
+                        None => self.scan_keyword(),
+                    }
                 }
             }
 
-            if until.is_some() && until.as_ref().unwrap()() {
+            if until.map(|f| f()).unwrap_or(false) {
                 break;
             }
         }
@@ -263,18 +258,14 @@ impl Tokenizer {
                         .unwrap(),
                     Some(unwrapped_word),
                 );
+                return;
             }
         }
 
-        if self.settings.single_tokens.contains_key(&self.current_char) {
-            self.add(
-                *self.settings.single_tokens.get(&self.current_char).unwrap(),
-                Some(self.current_char.to_string()),
-            );
-            return;
+        match self.settings.single_tokens.get(&self.current_char) {
+            Some(token_type) => self.add(*token_type, Some(self.current_char.to_string())),
+            None => self.scan_var(),
         }
-
-        self.scan_var();
     }
 
     fn scan_comment(&mut self, start: &str) -> bool {
@@ -338,18 +329,20 @@ impl Tokenizer {
                     )
                     .map(|x| *x);
 
-                if token_type.is_some() {
-                    self.add(TokenType::NUMBER, Some(number_text));
-                    self.add(TokenType::DCOLON, Some("::".to_string()));
-                    self.add(token_type.unwrap(), Some(literal));
-                    return;
-                } else if self.settings.identifiers_can_start_with_digit {
-                    self.add(TokenType::VAR, None);
-                    return;
+                match token_type {
+                    Some(unwrapped_token_type) => {
+                        self.add(TokenType::NUMBER, Some(number_text));
+                        self.add(TokenType::DCOLON, Some("::".to_string()));
+                        self.add(unwrapped_token_type, Some(literal));
+                    }
+                    None if self.settings.identifiers_can_start_with_digit => {
+                        self.add(TokenType::VAR, None);
+                    }
+                    None => {
+                        self.advance(literal.len(), false, true);
+                        self.add(TokenType::NUMBER, Some(number_text));
+                    }
                 }
-
-                self.advance(literal.len(), false, true);
-                self.add(TokenType::NUMBER, Some(number_text));
                 return;
             } else {
                 self.add(TokenType::NUMBER, None);
@@ -423,6 +416,7 @@ impl Tokenizer {
                     self.advance(2, false, false);
                 } else {
                     panic!("Missing {} from {}:{}", delimiter, self.line, self.current);
+                    // FIXME: use Result instead of panic
                 }
             } else {
                 if self.chars(delimiter.len()).iter().collect::<String>() == delimiter {
@@ -433,6 +427,7 @@ impl Tokenizer {
                 }
                 if self.is_end {
                     panic!("Missing {} from {}:{}", delimiter, self.line, self.current);
+                    // FIXME: use Result instead of panic
                 }
                 // FIXME: Support escape sequences
 
