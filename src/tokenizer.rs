@@ -127,22 +127,16 @@ impl Tokenizer {
         };
 
         if alnum && self.current_char.is_alphanumeric() {
-            let mut column = self.column;
-            let mut current = self.current;
-            let mut peek_char = self.peek_char;
-            let mut is_end = self.is_end;
-
-            while peek_char.is_alphanumeric() {
-                column += 1;
-                current += 1;
-                is_end = current >= self.size;
-                peek_char = if is_end { '\0' } else { self.char_at(current) };
+            while self.peek_char.is_alphanumeric() {
+                self.column += 1;
+                self.current += 1;
+                self.is_end = self.current >= self.size;
+                self.peek_char = if self.is_end {
+                    '\0'
+                } else {
+                    self.char_at(self.current)
+                };
             }
-
-            self.column = column;
-            self.current = current;
-            self.is_end = is_end;
-            self.peek_char = peek_char;
             self.current_char = self.char_at(self.current - 1);
         }
     }
