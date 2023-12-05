@@ -77,9 +77,7 @@ impl Tokenizer {
                     self.scan_number();
                 } else {
                     match self.settings.identifiers.get(&self.current_char) {
-                        Some(identifier_end) => {
-                            self.scan_identifier(&identifier_end.to_string() as &str)
-                        }
+                        Some(identifier_end) => self.scan_identifier(&identifier_end.to_string()),
                         None => self.scan_keyword(),
                     }
                 }
@@ -263,11 +261,7 @@ impl Tokenizer {
                 self.advance(size - 1, false, false);
                 let normalized_word = unwrapped_word.to_uppercase();
                 self.add(
-                    *self
-                        .settings
-                        .keywords
-                        .get(&normalized_word as &str)
-                        .unwrap(),
+                    *self.settings.keywords.get(&normalized_word).unwrap(),
                     Some(unwrapped_word),
                 );
                 return;
@@ -336,8 +330,8 @@ impl Tokenizer {
                     .get(
                         self.settings
                             .numeric_literals
-                            .get(&literal.to_uppercase() as &str)
-                            .unwrap_or(&""),
+                            .get(&literal.to_uppercase())
+                            .unwrap_or(&String::from("")),
                     )
                     .map(|x| *x);
 
@@ -389,7 +383,7 @@ impl Tokenizer {
         } else {
             self.settings
                 .keywords
-                .get(&self.text().to_uppercase() as &str)
+                .get(&self.text().to_uppercase())
                 .map(|x| *x)
                 .unwrap_or(TokenType::VAR)
         };
@@ -448,7 +442,7 @@ impl Tokenizer {
                 text.push_str(
                     &self.sql[current..self.current - 1]
                         .iter()
-                        .collect::<String>() as &str,
+                        .collect::<String>(),
                 );
             }
         }
@@ -459,12 +453,30 @@ impl Tokenizer {
 #[cfg(test)]
 mod test {
 
+    use std::time::Instant;
+
     use crate::tokenizer::Tokenizer;
 
     #[test]
     fn test_basic() {
+        let input = r#"
+    select
+    'abcdef',
+    12345
+    from def.ght
+    GROUP BY z,
+    2, 3 union ALL
+"#
+        .repeat(100);
+        let num_runs = 1000;
+        let mut total_micros: u32 = 0;
         let mut tokenizer = Tokenizer::new(None);
-        let tokens = tokenizer.tokenize("SELECT a, b, 1, 2");
-        dbg!(tokens);
+        for _ in 0..num_runs {
+            let start = Instant::now();
+            tokenizer.tokenize(&input);
+            let elapsed = start.elapsed();
+            total_micros += elapsed.as_micros() as u32;
+        }
+        dbg!(total_micros / num_runs);
     }
 }
