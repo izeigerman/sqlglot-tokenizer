@@ -21,12 +21,12 @@ struct Tokenizer {
 }
 
 impl Tokenizer {
-    fn from_sql(sql: &str, settings: Option<TokenizerSettings>) -> Tokenizer {
+    pub fn new(settings: Option<TokenizerSettings>) -> Tokenizer {
         let settings = settings.unwrap_or(TokenizerSettings::default());
-        let keyword_trie = Trie::empty();
+        let keyword_trie = Trie::new();
         Tokenizer {
-            sql: sql.chars().collect(),
-            size: sql.len(),
+            sql: Vec::new(),
+            size: 0,
             tokens: Vec::new(),
             start: 0,
             current: 0,
@@ -40,6 +40,24 @@ impl Tokenizer {
             keyword_trie,
             settings,
         }
+    }
+
+    pub fn tokenize(&mut self, sql: &str) -> Vec<Token> {
+        self.sql = sql.chars().collect();
+        self.size = sql.len();
+        self.start = 0;
+        self.current = 0;
+        self.line = 1;
+        self.column = 0;
+        self.comments = Vec::new();
+        self.is_end = false;
+        self.current_char = '\0';
+        self.peek_char = '\0';
+        self.previous_token_line = None;
+
+        self.scan::<fn() -> bool>(None);
+
+        std::mem::replace(&mut self.tokens, Vec::new())
     }
 
     fn scan<F>(&mut self, until: Option<&F>)
@@ -451,8 +469,8 @@ mod test {
 
     #[test]
     fn test_basic() {
-        let mut tokenizer = Tokenizer::from_sql("select a, b, 1, 2", None);
-        tokenizer.scan::<fn() -> bool>(None);
-        dbg!(tokenizer.tokens);
+        let mut tokenizer = Tokenizer::new(None);
+        let tokens = tokenizer.tokenize("SELECT a, b, 1, 2");
+        dbg!(tokens);
     }
 }

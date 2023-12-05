@@ -41,22 +41,13 @@ pub struct Trie {
 }
 
 impl Trie {
-    pub fn empty() -> Self {
+    pub fn new() -> Self {
         Trie {
             root: TrieNode {
                 is_word: false,
                 children: HashMap::new(),
             },
         }
-    }
-
-    pub fn new<I>(keys: I) -> Self
-    where
-        I: Iterator<Item = &'static str>,
-    {
-        let mut trie = Trie::empty();
-        trie.add(keys);
-        trie
     }
 
     pub fn add<I>(&mut self, keys: I)
