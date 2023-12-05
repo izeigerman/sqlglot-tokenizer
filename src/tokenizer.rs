@@ -3,7 +3,27 @@ use crate::token::{Token, TokenType};
 use crate::trie::{Trie, TrieResult};
 
 #[derive(Debug)]
-struct Tokenizer {
+pub struct Tokenizer {
+    settings: TokenizerSettings,
+    keyword_trie: Trie,
+}
+
+impl Tokenizer {
+    pub fn new(settings: Option<TokenizerSettings>) -> Tokenizer {
+        Tokenizer {
+            settings: settings.unwrap_or(TokenizerSettings::default()),
+            keyword_trie: Trie::new(),
+        }
+    }
+
+    pub fn tokenize(&self, sql: &str) -> Vec<Token> {
+        let mut state = TokenizerState::new(sql, &self.settings, &self.keyword_trie);
+        state.tokenize()
+    }
+}
+
+#[derive(Debug)]
+struct TokenizerState<'a> {
     sql: Vec<char>,
     size: usize,
     tokens: Vec<Token>,
@@ -16,17 +36,19 @@ struct Tokenizer {
     current_char: char,
     peek_char: char,
     previous_token_line: Option<usize>,
-    keyword_trie: Trie,
-    settings: TokenizerSettings,
+    keyword_trie: &'a Trie,
+    settings: &'a TokenizerSettings,
 }
 
-impl Tokenizer {
-    pub fn new(settings: Option<TokenizerSettings>) -> Tokenizer {
-        let settings = settings.unwrap_or(TokenizerSettings::default());
-        let keyword_trie = Trie::new();
-        Tokenizer {
-            sql: Vec::new(),
-            size: 0,
+impl<'a> TokenizerState<'a> {
+    fn new(
+        sql: &str,
+        settings: &'a TokenizerSettings,
+        keyword_trie: &'a Trie,
+    ) -> TokenizerState<'a> {
+        TokenizerState {
+            sql: sql.chars().collect(),
+            size: sql.len(),
             tokens: Vec::new(),
             start: 0,
             current: 0,
@@ -42,21 +64,8 @@ impl Tokenizer {
         }
     }
 
-    pub fn tokenize(&mut self, sql: &str) -> Vec<Token> {
-        self.sql = sql.chars().collect();
-        self.size = sql.len();
-        self.start = 0;
-        self.current = 0;
-        self.line = 1;
-        self.column = 0;
-        self.comments = Vec::new();
-        self.is_end = false;
-        self.current_char = '\0';
-        self.peek_char = '\0';
-        self.previous_token_line = None;
-
+    fn tokenize(&mut self) -> Vec<Token> {
         self.scan::<fn() -> bool>(None);
-
         std::mem::replace(&mut self.tokens, Vec::new())
     }
 
@@ -470,7 +479,7 @@ mod test {
         .repeat(100);
         let num_runs = 1000;
         let mut total_micros: u32 = 0;
-        let mut tokenizer = Tokenizer::new(None);
+        let tokenizer = Tokenizer::new(None);
         for _ in 0..num_runs {
             let start = Instant::now();
             tokenizer.tokenize(&input);
