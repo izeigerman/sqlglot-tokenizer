@@ -1,0 +1,65 @@
+use std::collections::HashMap;
+
+#[derive(Debug)]
+pub struct TrieNode {
+    is_word: bool,
+    children: HashMap<char, TrieNode>,
+}
+
+#[derive(Debug)]
+pub struct Trie {
+    root: TrieNode,
+}
+
+pub enum TrieResult {
+    Failed,
+    Prefix,
+    Exists,
+}
+
+impl Trie {
+    pub fn new<I>(keys: I) -> Self
+    where
+        I: Iterator<Item = &'static str>,
+    {
+        let mut trie = Trie {
+            root: TrieNode {
+                is_word: false,
+                children: HashMap::new(),
+            },
+        };
+
+        for key in keys {
+            let mut current = &mut trie.root;
+            for c in key.chars() {
+                current = current.children.entry(c).or_insert(TrieNode {
+                    is_word: false,
+                    children: HashMap::new(),
+                });
+            }
+            current.is_word = true;
+        }
+
+        trie
+    }
+
+    pub fn contains(&self, key: &str) -> (TrieResult, &TrieNode) {
+        if key.is_empty() {
+            return (TrieResult::Failed, &self.root);
+        }
+
+        let mut current = &self.root;
+        for c in key.chars() {
+            match current.children.get(&c) {
+                Some(node) => current = node,
+                None => return (TrieResult::Failed, current),
+            }
+        }
+
+        if current.is_word {
+            (TrieResult::Exists, current)
+        } else {
+            (TrieResult::Prefix, current)
+        }
+    }
+}
